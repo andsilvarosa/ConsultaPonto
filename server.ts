@@ -4,11 +4,89 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import dotenv from "dotenv";
+import Database from "better-sqlite3";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Mock D1 Database for local development
+const sqlite = new Database("local.db");
+const mockD1 = {
+  prepare: (query: string) => {
+    return {
+      bind: (...params: any[]) => {
+        return {
+          all: async () => {
+            try {
+              const stmt = sqlite.prepare(query);
+              const results = stmt.all(...params);
+              return { results, success: true };
+            } catch (e: any) {
+              return { error: e.message, success: false };
+            }
+          },
+          run: async () => {
+            try {
+              const stmt = sqlite.prepare(query);
+              const info = stmt.run(...params);
+              return { results: [], success: true, meta: { changes: info.changes } };
+            } catch (e: any) {
+              return { error: e.message, success: false };
+            }
+          },
+          first: async () => {
+            try {
+              const stmt = sqlite.prepare(query);
+              const result = stmt.get(...params);
+              return result;
+            } catch (e: any) {
+              return null;
+            }
+          }
+        };
+      },
+      all: async () => {
+        try {
+          const stmt = sqlite.prepare(query);
+          const results = stmt.all();
+          return { results, success: true };
+        } catch (e: any) {
+          return { error: e.message, success: false };
+        }
+      },
+      run: async () => {
+        try {
+          const stmt = sqlite.prepare(query);
+          const info = stmt.run();
+          return { results: [], success: true, meta: { changes: info.changes } };
+        } catch (e: any) {
+          return { error: e.message, success: false };
+        }
+      },
+      first: async () => {
+        try {
+          const stmt = sqlite.prepare(query);
+          const result = stmt.get();
+          return result;
+        } catch (e: any) {
+          return null;
+        }
+      }
+    };
+  },
+  exec: async (query: string) => {
+    sqlite.exec(query);
+  },
+  batch: async (statements: any[]) => {
+    const results = [];
+    for (const stmt of statements) {
+      results.push(await stmt.all());
+    }
+    return results;
+  }
+};
 
 async function startServer() {
   const app = express();
@@ -27,7 +105,7 @@ async function startServer() {
       }
     },
     env: {
-      DATABASE_URL: process.env.DATABASE_URL,
+      DB: mockD1,
     },
   });
 

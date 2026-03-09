@@ -1,15 +1,13 @@
 import { timeEntries } from "../../src/db/schema";
 import { sql, eq, and } from "drizzle-orm";
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { drizzle } from "drizzle-orm/d1";
 import * as cheerio from 'cheerio';
 
 export async function onRequestPost(context: any) {
   const matricula = context.request.headers.get('x-matricula');
   if (!matricula) return Response.json({ error: "Matrícula não informada" }, { status: 400 });
 
-  const sqlClient = neon(context.env.DATABASE_URL);
-  const db = drizzle(sqlClient);
+  const db = drizzle(context.env.DB);
 
   try {
     const url = 'https://webapp.confianca.com.br/consultaponto/ponto.aspx';
@@ -156,62 +154,7 @@ export async function onRequestPost(context: any) {
       await Promise.all(batch.map(dayInfo => fetchDay(dayInfo)));
     }
 
-    // 4. Transformar e Guardar no Neon DB
-    
-    // Garantir que a tabela e a chave primária existem no banco de produção
-    try {
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS time_entries (
-          matricula TEXT NOT NULL DEFAULT '000000',
-          date TEXT NOT NULL,
-          entry_1 TEXT, exit_1 TEXT,
-          entry_2 TEXT, exit_2 TEXT,
-          entry_3 TEXT, exit_3 TEXT,
-          entry_4 TEXT, exit_4 TEXT,
-          entry_5 TEXT, exit_5 TEXT,
-          is_manual BOOLEAN DEFAULT FALSE,
-          is_extra BOOLEAN DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `);
-      
-      // Add columns if they don't exist
-      await db.execute(sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS matricula TEXT NOT NULL DEFAULT '000000'`);
-      await db.execute(sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS is_manual BOOLEAN DEFAULT FALSE`);
-      await db.execute(sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS is_extra BOOLEAN DEFAULT FALSE`);
-      
-      // Fix NULLs and constraints
-      try {
-        console.log("Limpando dados e ajustando índices...");
-        await db.execute(sql`UPDATE time_entries SET matricula = '000000' WHERE matricula IS NULL`);
-        await db.execute(sql`ALTER TABLE time_entries ALTER COLUMN matricula SET NOT NULL`);
-        await db.execute(sql`ALTER TABLE time_entries ALTER COLUMN date SET NOT NULL`);
-        
-        // Remove duplicates
-        await db.execute(sql`
-          DELETE FROM time_entries a USING time_entries b
-          WHERE a.matricula = b.matricula AND a.date = b.date AND a.ctid > b.ctid
-        `);
-        
-        // Create unique index for ON CONFLICT
-        await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS time_entries_matricula_date_idx ON time_entries (matricula, date)`);
-        console.log("Índice único criado com sucesso.");
-      } catch (e: any) {
-        console.error("Erro ao ajustar índices:", e.message);
-      }
-    } catch (e: any) {
-      console.error("Erro ao configurar tabela:", e);
-    }
-
-    // Garantir que as colunas são do tipo TEXT
-    const columns = ['entry_1', 'exit_1', 'entry_2', 'exit_2', 'entry_3', 'exit_3', 'entry_4', 'exit_4', 'entry_5', 'exit_5'];
-    for (const col of columns) {
-      try {
-        await db.execute(sql.raw(`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS ${col} TEXT`));
-        await db.execute(sql.raw(`ALTER TABLE time_entries ALTER COLUMN ${col} TYPE TEXT USING ${col}::TEXT`));
-      } catch (e) {}
-    }
-
+    // 4. Transformar e Guardar no DB
     // Corrigir marcações de virada de noite (overnight shifts)
     // 1. Ordenar as marcações de cada dia primeiro
     for (const [date, punches] of mapaMarcacoes.entries()) {
@@ -299,22 +242,25 @@ export async function onRequestPost(context: any) {
       };
 
       try {
-        await db.execute(sql`
-          INSERT INTO time_entries (
-            matricula, date, 
-            entry_1, exit_1, entry_2, exit_2, entry_3, exit_3, entry_4, exit_4, entry_5, exit_5
-          ) VALUES (
-            ${matricula}, ${marcacao.date},
-            ${marcacao.entry_1}, ${marcacao.exit_1}, ${marcacao.entry_2}, ${marcacao.exit_2}, ${marcacao.entry_3}, ${marcacao.exit_3}, ${marcacao.entry_4}, ${marcacao.exit_4}, ${marcacao.entry_5}, ${marcacao.exit_5}
-          )
-          ON CONFLICT (matricula, date) DO UPDATE SET
-            entry_1 = EXCLUDED.entry_1, exit_1 = EXCLUDED.exit_1,
-            entry_2 = EXCLUDED.entry_2, exit_2 = EXCLUDED.exit_2,
-            entry_3 = EXCLUDED.entry_3, exit_3 = EXCLUDED.exit_3,
-            entry_4 = EXCLUDED.entry_4, exit_4 = EXCLUDED.exit_4,
-            entry_5 = EXCLUDED.entry_5, exit_5 = EXCLUDED.exit_5
-          WHERE time_entries.is_manual IS NOT TRUE
-        `);
+        await db.insert(timeEntries).values({
+          matricula,
+          date: marcacao.date,
+          entry_1: marcacao.entry_1, exit_1: marcacao.exit_1,
+          entry_2: marcacao.entry_2, exit_2: marcacao.exit_2,
+          entry_3: marcacao.entry_3, exit_3: marcacao.exit_3,
+          entry_4: marcacao.entry_4, exit_4: marcacao.exit_4,
+          entry_5: marcacao.entry_5, exit_5: marcacao.exit_5
+        }).onConflictDoUpdate({
+          target: [timeEntries.matricula, timeEntries.date],
+          set: {
+            entry_1: marcacao.entry_1, exit_1: marcacao.exit_1,
+            entry_2: marcacao.entry_2, exit_2: marcacao.exit_2,
+            entry_3: marcacao.entry_3, exit_3: marcacao.exit_3,
+            entry_4: marcacao.entry_4, exit_4: marcacao.exit_4,
+            entry_5: marcacao.entry_5, exit_5: marcacao.exit_5
+          },
+          setWhere: sql`time_entries.is_manual IS NOT TRUE`
+        });
         savedCount++;
       } catch (e: any) {
         console.error("Erro ao guardar no DB:", e);

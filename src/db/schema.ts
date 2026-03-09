@@ -1,12 +1,12 @@
-import { pgTable, text, integer, timestamp, primaryKey, boolean } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
-export const holidays = pgTable("holidays", {
+export const holidays = sqliteTable("holidays", {
   date: text("date").primaryKey(),
   name: text("name").notNull(),
   type: text("type").default("national"),
 });
 
-export const timeEntries = pgTable("time_entries", {
+export const timeEntries = sqliteTable("time_entries", {
   matricula: text("matricula").notNull(),
   date: text("date").notNull(),
   entry_1: text("entry_1"),
@@ -19,16 +19,16 @@ export const timeEntries = pgTable("time_entries", {
   exit_4: text("exit_4"),
   entry_5: text("entry_5"),
   exit_5: text("exit_5"),
-  is_manual: boolean("is_manual").default(false),
-  is_extra: boolean("is_extra").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  is_manual: integer("is_manual", { mode: "boolean" }).default(false),
+  is_extra: integer("is_extra", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
 }, (table) => {
   return {
     pk: primaryKey({ columns: [table.matricula, table.date] }),
   };
 });
 
-export const settings = pgTable("settings", {
+export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });

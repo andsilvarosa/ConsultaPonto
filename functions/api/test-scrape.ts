@@ -1,5 +1,4 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { drizzle } from "drizzle-orm/d1";
 import * as cheerio from 'cheerio';
 
 export async function onRequestGet(context: any) {
