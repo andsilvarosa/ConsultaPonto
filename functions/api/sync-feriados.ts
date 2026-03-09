@@ -3,10 +3,10 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 export async function onRequestGet(context: any) {
-  if (!context.env.DB) {
+  if (!context.env.DB || typeof context.env.DB.prepare !== 'function') {
     return Response.json({ 
-      error: "D1 Database binding missing", 
-      details: "A vinculação do banco de dados D1 (DB) não foi encontrada nas configurações do Cloudflare Pages. Por favor, adicione a vinculação 'DB' no painel do Cloudflare." 
+      error: "D1 Database binding missing or invalid", 
+      details: `A vinculação 'DB' não foi encontrada ou é inválida (tipo: ${typeof context.env.DB}). Certifique-se de que você adicionou uma 'D1 Database Binding' com o nome 'DB' (e não uma variável de ambiente comum) no painel do Cloudflare e que fez um novo deploy.` 
     }, { status: 500 });
   }
 
