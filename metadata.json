@@ -1,0 +1,5 @@
+{
+  "name": "Ponto - Sistema de Controle de Ponto",
+  "description": "Sistema moderno de controle de ponto com cálculos automáticos no espelho, adicional noturno e banco de horas.",
+  "requestFramePermissions": []
+}

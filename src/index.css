@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-400 font-sans antialiased selection:bg-emerald-500/30 transition-colors duration-300;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar, .custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track, .custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb, .custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
+}
+
+/* Input overrides */
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.3;
+  cursor: pointer;
+}
+
+.minimal-card {
+  @apply bg-[#121214] border border-white/[0.04] rounded-2xl p-6 transition-all duration-300;
+}
