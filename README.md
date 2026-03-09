@@ -1,4 +1,4 @@
-# Ponto CLT - Full Stack (Neon + Cloudflare)
+# Consulta Espelho - Full Stack (Neon + Cloudflare)
 
 Este projeto foi preparado para deploy no **Cloudflare Pages** com banco de dados **Neon (PostgreSQL)**.
 

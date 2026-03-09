@@ -358,7 +358,7 @@ export default function App() {
             <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-4">
               <Clock className="text-black w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Ponto CLT</h1>
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Consulta Espelho</h1>
             <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2">Digite sua matrícula para acessar</p>
           </div>
 
@@ -447,7 +447,7 @@ export default function App() {
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-2">Ponto CLT</h1>
+            <h1 className="text-4xl font-bold tracking-tight mb-2">Consulta Espelho</h1>
             <p className="text-zinc-500 dark:text-zinc-500 flex items-center gap-2">
               <CalendarDays className="w-4 h-4" />
               {currentTime.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
