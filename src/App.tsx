@@ -815,7 +815,7 @@ export default function App() {
                   <input 
                     type="date" 
                     required
-                    value={formData.date}
+                    value={formData.date || ''}
                     onChange={e => setFormData({...formData, date: e.target.value})}
                     className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white"
                   />
@@ -827,7 +827,7 @@ export default function App() {
                       <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest">Entrada {i}</label>
                       <input 
                         type="time" 
-                        value={(formData as any)[`entry_${i}`]}
+                        value={(formData as any)[`entry_${i}`] || ''}
                         onChange={e => setFormData({...formData, [`entry_${i}`]: e.target.value})}
                         className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white text-sm"
                       />
@@ -836,7 +836,7 @@ export default function App() {
                       <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest">Saída {i}</label>
                       <input 
                         type="time" 
-                        value={(formData as any)[`exit_${i}`]}
+                        value={(formData as any)[`exit_${i}`] || ''}
                         onChange={e => setFormData({...formData, [`exit_${i}`]: e.target.value})}
                         className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white text-sm"
                       />
