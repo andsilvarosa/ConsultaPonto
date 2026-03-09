@@ -167,39 +167,12 @@ export async function onRequestPost(context: any) {
       punches.sort();
     }
 
-    // 2. Regra de Interjornada (Move Forward): 
-    // Se um dia tem uma marcação muito distante da anterior (> 11h), 
-    // essa marcação e as seguintes pertencem ao próximo dia.
-    const datesForForward = Array.from(mapaMarcacoes.keys()).sort();
-    for (const date of datesForForward) {
-      const punches = mapaMarcacoes.get(date)!;
-      if (punches.length < 2) continue;
-      
-      for (let i = 1; i < punches.length; i++) {
-        const [hPrev, mPrev] = punches[i-1].split(':').map(Number);
-        const [hCurr, mCurr] = punches[i].split(':').map(Number);
-        const minsPrev = hPrev * 60 + mPrev;
-        const minsCurr = hCurr * 60 + mCurr;
-        
-        if (minsCurr - minsPrev > 660) { // Gap > 11 horas
-          const movedPunches = punches.splice(i);
-          const [year, month, day] = date.split('-').map(Number);
-          const nextDateObj = new Date(year, month - 1, day);
-          nextDateObj.setDate(nextDateObj.getDate() + 1);
-          const nextDateStr = `${nextDateObj.getFullYear()}-${String(nextDateObj.getMonth() + 1).padStart(2, '0')}-${String(nextDateObj.getDate()).padStart(2, '0')}`;
-          
-          const existingNext = mapaMarcacoes.get(nextDateStr) || [];
-          mapaMarcacoes.set(nextDateStr, Array.from(new Set([...movedPunches, ...existingNext])).sort());
-          break; 
-        }
-      }
-    }
-
-    // 3. Corrigir marcações de virada de noite (Move Backward)
-    const sortedDates = Array.from(mapaMarcacoes.keys()).sort();
+    // 2. Corrigir marcações de virada de noite (Move Backward)
+    // Fazemos isso PRIMEIRO para que batidas de saída de madrugada voltem para o dia correto
+    const sortedDatesForBackward = Array.from(mapaMarcacoes.keys()).sort();
     
-    for (let i = 0; i < sortedDates.length; i++) {
-      const currentDate = sortedDates[i];
+    for (let i = 0; i < sortedDatesForBackward.length; i++) {
+      const currentDate = sortedDatesForBackward[i];
       const currentPunches = mapaMarcacoes.get(currentDate)!;
       
       if (currentPunches.length === 0) continue;
@@ -275,6 +248,35 @@ export async function onRequestPost(context: any) {
           // Não ordenamos aqui para manter a sequência cronológica (a saída da madrugada fica por último)
           mapaMarcacoes.set(prevDateStr, prevPunches);
           mapaMarcacoes.set(currentDate, currentPunches);
+        }
+      }
+    }
+
+    // 3. Regra de Interjornada (Move Forward): 
+    // Se um dia tem uma marcação muito distante da anterior (> 11h), 
+    // essa marcação e as seguintes pertencem ao próximo dia.
+    // Fazemos isso DEPOIS para separar jornadas que o site da empresa agrupou erroneamente
+    const datesForForward = Array.from(mapaMarcacoes.keys()).sort();
+    for (const date of datesForForward) {
+      const punches = mapaMarcacoes.get(date)!;
+      if (punches.length < 2) continue;
+      
+      for (let i = 1; i < punches.length; i++) {
+        const [hPrev, mPrev] = punches[i-1].split(':').map(Number);
+        const [hCurr, mCurr] = punches[i].split(':').map(Number);
+        const minsPrev = hPrev * 60 + mPrev;
+        const minsCurr = hCurr * 60 + mCurr;
+        
+        if (minsCurr - minsPrev > 660) { // Gap > 11 horas
+          const movedPunches = punches.splice(i);
+          const [year, month, day] = date.split('-').map(Number);
+          const nextDateObj = new Date(year, month - 1, day);
+          nextDateObj.setDate(nextDateObj.getDate() + 1);
+          const nextDateStr = `${nextDateObj.getFullYear()}-${String(nextDateObj.getMonth() + 1).padStart(2, '0')}-${String(nextDateObj.getDate()).padStart(2, '0')}`;
+          
+          const existingNext = mapaMarcacoes.get(nextDateStr) || [];
+          mapaMarcacoes.set(nextDateStr, Array.from(new Set([...movedPunches, ...existingNext])).sort());
+          break; 
         }
       }
     }
