@@ -162,12 +162,40 @@ export async function onRequestPost(context: any) {
     }
 
     // 4. Transformar e Guardar no DB
-    // Corrigir marcações de virada de noite (overnight shifts)
     // 1. Ordenar as marcações de cada dia primeiro
     for (const [date, punches] of mapaMarcacoes.entries()) {
       punches.sort();
     }
 
+    // 2. Regra de Interjornada (Move Forward): 
+    // Se um dia tem uma marcação muito distante da anterior (> 11h), 
+    // essa marcação e as seguintes pertencem ao próximo dia.
+    const datesForForward = Array.from(mapaMarcacoes.keys()).sort();
+    for (const date of datesForForward) {
+      const punches = mapaMarcacoes.get(date)!;
+      if (punches.length < 2) continue;
+      
+      for (let i = 1; i < punches.length; i++) {
+        const [hPrev, mPrev] = punches[i-1].split(':').map(Number);
+        const [hCurr, mCurr] = punches[i].split(':').map(Number);
+        const minsPrev = hPrev * 60 + mPrev;
+        const minsCurr = hCurr * 60 + mCurr;
+        
+        if (minsCurr - minsPrev > 660) { // Gap > 11 horas
+          const movedPunches = punches.splice(i);
+          const [year, month, day] = date.split('-').map(Number);
+          const nextDateObj = new Date(year, month - 1, day);
+          nextDateObj.setDate(nextDateObj.getDate() + 1);
+          const nextDateStr = `${nextDateObj.getFullYear()}-${String(nextDateObj.getMonth() + 1).padStart(2, '0')}-${String(nextDateObj.getDate()).padStart(2, '0')}`;
+          
+          const existingNext = mapaMarcacoes.get(nextDateStr) || [];
+          mapaMarcacoes.set(nextDateStr, Array.from(new Set([...movedPunches, ...existingNext])).sort());
+          break; 
+        }
+      }
+    }
+
+    // 3. Corrigir marcações de virada de noite (Move Backward)
     const sortedDates = Array.from(mapaMarcacoes.keys()).sort();
     
     for (let i = 0; i < sortedDates.length; i++) {
@@ -178,56 +206,73 @@ export async function onRequestPost(context: any) {
       
       const firstPunch = currentPunches[0];
       
-      // Se a primeira marcação for de madrugada/manhã (antes das 09:00)
-      if (firstPunch < '09:00') {
+      // Se a primeira marcação for de madrugada/manhã (antes das 10:00)
+      if (firstPunch < '10:00') {
         const [year, month, day] = currentDate.split('-').map(Number);
         const currDateObj = new Date(year, month - 1, day);
         currDateObj.setDate(currDateObj.getDate() - 1);
         const prevDateStr = `${currDateObj.getFullYear()}-${String(currDateObj.getMonth() + 1).padStart(2, '0')}-${String(currDateObj.getDate()).padStart(2, '0')}`;
         
-        // Se tem mais de uma marcação, o gap para a próxima deve ser grande (ex: > 6 horas)
-        // Isso garante que não vamos puxar uma entrada normal da manhã (ex: 08:00) 
-        // só porque o dia anterior esqueceu de bater a saída.
-        let isOrphaned = false;
-        
-        if (currentPunches.length > 1) {
-          const secondPunch = currentPunches[1];
-          const p1 = firstPunch.split(':');
-          const p2 = secondPunch.split(':');
-          const m1 = parseInt(p1[0], 10) * 60 + parseInt(p1[1], 10);
-          const m2 = parseInt(p2[0], 10) * 60 + parseInt(p2[1], 10);
-          if (m2 - m1 > 360) { // Gap maior que 6 horas
-            isOrphaned = true;
-          }
+        let prevPunches: string[] = [];
+        let belongsToPreviousDay = false;
+
+        // 1. Tentar obter as marcações do dia anterior (do mapa ou do DB)
+        if (mapaMarcacoes.has(prevDateStr)) {
+          prevPunches = [...mapaMarcacoes.get(prevDateStr)!];
         } else {
-          // Se só tem uma marcação e é de madrugada, é órfã com certeza
-          isOrphaned = true;
+          try {
+            const existing = await db.select().from(timeEntries).where(and(eq(timeEntries.matricula, matricula), eq(timeEntries.date, prevDateStr))).limit(1);
+            if (existing.length > 0) {
+              const row = existing[0] as any;
+              const cols = ['entry_1', 'exit_1', 'entry_2', 'exit_2', 'entry_3', 'exit_3', 'entry_4', 'exit_4', 'entry_5', 'exit_5'];
+              for (const col of cols) {
+                if (row[col]) prevPunches.push(row[col] as string);
+              }
+            }
+          } catch (e) {
+            console.error("Erro ao buscar dia anterior do DB:", e);
+          }
         }
 
-        if (isOrphaned) {
-          const orphanedPunch = currentPunches.shift()!;
+        // 2. Aplicar a regra de Interjornada (11 horas)
+        // Se o intervalo entre a última marcação de ontem e a primeira de hoje for < 11h, 
+        // então a primeira de hoje é continuação de ontem (virada de noite).
+        if (prevPunches.length > 0) {
+          const lastPunchPrevDay = prevPunches[prevPunches.length - 1];
+          const [h1, m1] = firstPunch.split(':').map(Number);
+          const [hL, mL] = lastPunchPrevDay.split(':').map(Number);
           
-          let prevPunches: string[] = [];
-          if (mapaMarcacoes.has(prevDateStr)) {
-            prevPunches = mapaMarcacoes.get(prevDateStr)!;
-          } else {
-            // Tenta buscar do banco de dados para não sobrescrever o dia anterior (ex: último dia do mês passado)
-            try {
-              const existing = await db.select().from(timeEntries).where(and(eq(timeEntries.matricula, matricula), eq(timeEntries.date, prevDateStr))).limit(1);
-              if (existing.length > 0) {
-                const row = existing[0] as any;
-                const cols = ['entry_1', 'exit_1', 'entry_2', 'exit_2', 'entry_3', 'exit_3', 'entry_4', 'exit_4', 'entry_5', 'exit_5'];
-                for (const col of cols) {
-                  if (row[col]) prevPunches.push(row[col] as string);
-                }
+          const minsFirst = h1 * 60 + m1;
+          const minsLast = hL * 60 + mL;
+          
+          // Gap = (tempo até meia-noite de ontem) + (tempo desde meia-noite de hoje)
+          const gap = (1440 - minsLast) + minsFirst;
+          
+          if (gap < 660) { // 11 horas = 660 minutos
+            belongsToPreviousDay = true;
+          }
+        } else {
+          // Se não temos dados de ontem, usamos uma heurística conservadora:
+          // Só consideramos virada de noite se for MUITO cedo (ex: antes das 04:00)
+          // e houver um gap grande para a próxima marcação do próprio dia (> 6h)
+          if (firstPunch < '04:00') {
+            if (currentPunches.length > 1) {
+              const secondPunch = currentPunches[1];
+              const [h1, m1] = firstPunch.split(':').map(Number);
+              const [h2, m2] = secondPunch.split(':').map(Number);
+              if ((h2 * 60 + m2) - (h1 * 60 + m1) > 360) {
+                belongsToPreviousDay = true;
               }
-            } catch (e) {
-              console.error("Erro ao buscar dia anterior do DB:", e);
+            } else {
+              belongsToPreviousDay = true;
             }
           }
-          
+        }
+
+        if (belongsToPreviousDay) {
+          const orphanedPunch = currentPunches.shift()!;
           prevPunches.push(orphanedPunch);
-          // Não ordenamos aqui para que a marcação da madrugada (ex: 00:33) fique no final do array do dia anterior
+          // Não ordenamos aqui para manter a sequência cronológica (a saída da madrugada fica por último)
           mapaMarcacoes.set(prevDateStr, prevPunches);
           mapaMarcacoes.set(currentDate, currentPunches);
         }
