@@ -3,6 +3,13 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 export async function onRequestGet(context: any) {
+  if (!context.env.DB) {
+    return Response.json({ 
+      error: "D1 Database binding missing", 
+      details: "A vinculação do banco de dados D1 (DB) não foi encontrada nas configurações do Cloudflare Pages. Por favor, adicione a vinculação 'DB' no painel do Cloudflare." 
+    }, { status: 500 });
+  }
+
   const matricula = context.request.headers.get('x-matricula');
   if (!matricula) return Response.json({ error: "Matrícula não informada" }, { status: 400 });
 
@@ -25,6 +32,13 @@ export async function onRequestGet(context: any) {
 }
 
 export async function onRequestPost(context: any) {
+  if (!context.env.DB) {
+    return Response.json({ 
+      error: "D1 Database binding missing", 
+      details: "A vinculação do banco de dados D1 (DB) não foi encontrada nas configurações do Cloudflare Pages. Por favor, adicione a vinculação 'DB' no painel do Cloudflare." 
+    }, { status: 500 });
+  }
+
   const matricula = context.request.headers.get('x-matricula');
   if (!matricula) return Response.json({ error: "Matrícula não informada" }, { status: 400 });
 
