@@ -60,7 +60,12 @@ interface Holiday {
 
 export default function App() {
   const [matricula, setMatricula] = useState<string>(() => localStorage.getItem('matricula') || '');
+  const [password, setPassword] = useState<string>('');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => !!localStorage.getItem('matricula'));
+  const [isCheckingMatricula, setIsCheckingMatricula] = useState(false);
+  const [matriculaExists, setMatriculaExists] = useState<boolean | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -338,11 +343,55 @@ export default function App() {
 
   const stats = calculateStats();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleCheckMatricula = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (matricula.trim().length > 0) {
+    if (!matricula.trim()) return;
+    
+    setIsCheckingMatricula(true);
+    setAuthError(null);
+    try {
+      const response = await fetch('/api/auth/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matricula: matricula.trim() }),
+      });
+      const data = await response.json();
+      setMatriculaExists(data.registered);
+      setIsRegistering(!data.registered);
+    } catch (err) {
+      setAuthError('Erro ao verificar matrícula');
+    } finally {
+      setIsCheckingMatricula(false);
+    }
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!matricula.trim() || !password.trim()) return;
+
+    setAuthError(null);
+    const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+    
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          matricula: matricula.trim(), 
+          password: password.trim() 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro na autenticação');
+      }
+
       localStorage.setItem('matricula', matricula.trim());
       setIsLoggedIn(true);
+    } catch (err: any) {
+      setAuthError(err.message);
     }
   };
 
@@ -359,27 +408,84 @@ export default function App() {
               <Clock className="text-black w-8 h-8" />
             </div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Consulta Espelho</h1>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2">Digite sua matrícula para acessar</p>
+            <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2 text-center">
+              {matriculaExists === null 
+                ? 'Digite sua matrícula para acessar' 
+                : isRegistering 
+                  ? 'Matrícula não cadastrada. Crie uma senha.' 
+                  : 'Digite sua senha para acessar'}
+            </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          {authError && (
+            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 text-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={matriculaExists === null ? handleCheckMatricula : handleAuth} className="space-y-6">
             <div className="space-y-2">
               <label className="text-xs font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest">Matrícula</label>
               <input 
                 type="text" 
                 required
+                disabled={matriculaExists !== null}
                 value={matricula}
                 onChange={e => setMatricula(e.target.value)}
                 placeholder="Ex: 121212"
-                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white"
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white disabled:opacity-50"
               />
             </div>
-            <button 
-              type="submit"
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20"
-            >
-              Acessar
-            </button>
+
+            {matriculaExists !== null && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="space-y-2"
+              >
+                <label className="text-xs font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest">Senha</label>
+                <input 
+                  type="password" 
+                  required
+                  autoFocus
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="********"
+                  className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white"
+                />
+              </motion.div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <button 
+                type="submit"
+                disabled={isCheckingMatricula}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isCheckingMatricula 
+                  ? 'Verificando...' 
+                  : matriculaExists === null 
+                    ? 'Continuar' 
+                    : isRegistering 
+                      ? 'Cadastrar Senha' 
+                      : 'Acessar'}
+              </button>
+
+              {matriculaExists !== null && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setMatriculaExists(null);
+                    setPassword('');
+                    setAuthError(null);
+                  }}
+                  className="w-full text-zinc-500 dark:text-zinc-400 text-sm font-medium hover:text-emerald-500 transition-colors"
+                >
+                  Usar outra matrícula
+                </button>
+              )}
+            </div>
           </form>
         </motion.div>
       </div>

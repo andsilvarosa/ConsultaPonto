@@ -32,3 +32,9 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const users = sqliteTable("users", {
+  matricula: text("matricula").primaryKey(),
+  password: text("password").notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+});
