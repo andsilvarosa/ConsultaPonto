@@ -131,63 +131,54 @@ export async function onRequestPost(context: any) {
 
         // 2.3 Extrair os dados da tabela
         const rowDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
-        const punchesDoDia: string[] = [];
+        const punchesDoDia: string[] = mapaMarcacoes.get(rowDate) || [];
 
-        $2('#Grid tr, table tr').each((index, element) => {
-          // Regra de Linhas solicitada pelo usuário:
-          // 1. Jornadas que começarem após meio dia (Noturnas): Iniciar na 11ª linha (index 10)
-          // 2. Jornadas que começarem após às 03 da manhã (Diurnas): Iniciar na 10ª linha (index 9)
+        // Procurar a tabela de horários (geralmente a que contém o cabeçalho "Horário")
+        let foundHorarioHeader = false;
+        
+        $2('tr').each((index, element) => {
+          const rowText = $2(element).text().trim().toLowerCase();
           
-          if (index < 9) return; // Ignora as primeiras 9 linhas (0-8)
+          // Se encontrarmos o cabeçalho, as próximas linhas são dados
+          // Usamos includes para ser mais flexível com espaços ou caracteres extras
+          if (!foundHorarioHeader && (rowText.includes('horário') || rowText.includes('horario'))) {
+            foundHorarioHeader = true;
+            return;
+          }
 
-          const rowText = $2(element).text().toLowerCase();
-          
-          // Ignorar linhas de resumo que podem conter totais de horas que parecem batidas
+          if (!foundHorarioHeader) return;
+
+          // Ignorar linhas de resumo
           if (rowText.includes('total') || rowText.includes('saldo') || rowText.includes('débito') || rowText.includes('crédito') || rowText.includes('horas')) {
             return;
           }
 
-          const textoLinha = $2(element).text().replace(/\s+/g, ' ').trim();
-          const matchesHorario = textoLinha.match(/([0-2]?\d:[0-5]\d)/g);
+          const matchesHorario = rowText.match(/([0-2]?\d:[0-5]\d)/g);
           
           if (matchesHorario) {
-            const tempPunches: string[] = [];
             matchesHorario.forEach(h => {
               let [hora, min] = h.split(':');
               const hFormatada = `${hora.padStart(2, '0')}:${min}`;
-              tempPunches.push(hFormatada);
-            });
-
-            if (tempPunches.length > 0) {
-              const firstInRow = tempPunches[0];
-
-              // Se estamos na 10ª linha (index 9)
-              if (index === 9) {
-                // REGRA 1: Se a jornada começa após meio-dia, a regra diz para começar na 11ª (index 10)
-                if (firstInRow >= '12:00') {
-                  return;
-                }
+              
+              // Se a batida é de madrugada (antes das 03:00), ela pertence ao dia anterior
+              // Isso resolve a "Regra de Linhas" de forma mais robusta que contando índices
+              if (hFormatada < '03:00') {
+                const prevDate = new Date(today.getFullYear(), today.getMonth(), dayInfo.day - 1);
+                const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
                 
-                // REGRA 2: Se a batida é de madrugada (antes das 03:00), ela pertence ao dia anterior
-                if (firstInRow < '03:00') {
-                  const prevDate = new Date(today.getFullYear(), today.getMonth(), dayInfo.day - 1);
-                  const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
-                  
-                  const prevPunches = mapaMarcacoes.get(prevDateStr) || [];
-                  tempPunches.forEach(p => {
-                    if (!prevPunches.includes(p)) prevPunches.push(p);
-                  });
+                const prevPunches = mapaMarcacoes.get(prevDateStr) || [];
+                if (!prevPunches.includes(hFormatada)) {
+                  prevPunches.push(hFormatada);
                   prevPunches.sort();
                   mapaMarcacoes.set(prevDateStr, prevPunches);
-                  return; // Não adiciona ao dia atual
+                }
+              } else {
+                // Adiciona ao dia atual
+                if (!punchesDoDia.includes(hFormatada)) {
+                  punchesDoDia.push(hFormatada);
                 }
               }
-              
-              // Adiciona ao dia atual
-              tempPunches.forEach(h => {
-                if (!punchesDoDia.includes(h)) punchesDoDia.push(h);
-              });
-            }
+            });
           }
         });
 
@@ -197,11 +188,9 @@ export async function onRequestPost(context: any) {
       }
     };
 
-    // Executar em lotes (batches) de 5 para não sobrecarregar
-    const batchSize = 5;
-    for (let i = 0; i < daysToFetch.length; i += batchSize) {
-      const batch = daysToFetch.slice(i, i + batchSize);
-      await Promise.all(batch.map(dayInfo => fetchDay(dayInfo)));
+    // Executar SEQUENCIALMENTE para evitar race conditions no Map ao mover batidas de madrugada
+    for (const dayInfo of daysToFetch) {
+      await fetchDay(dayInfo);
     }
 
     // 4. Transformar e Guardar no DB
@@ -212,29 +201,8 @@ export async function onRequestPost(context: any) {
 
     const sortedDates = Array.from(mapaMarcacoes.keys()).sort();
 
-    // 2. Deduplicação Global (Remover batidas idênticas em dias adjacentes)
-    // Isso resolve o problema do site da empresa retornar as mesmas batidas para dias diferentes
-    for (let i = 1; i < sortedDates.length; i++) {
-      const prevDate = sortedDates[i - 1];
-      const currDate = sortedDates[i];
-      const prevPunches = mapaMarcacoes.get(prevDate)!;
-      const currPunches = mapaMarcacoes.get(currDate)!;
-      
-      if (currPunches.length > 0 && prevPunches.length > 0) {
-        // Se TODAS as batidas de hoje já estão em ontem, hoje é uma duplicata (provável erro do site)
-        const isDuplicate = currPunches.every(p => prevPunches.includes(p));
-        if (isDuplicate) {
-          mapaMarcacoes.set(currDate, []);
-        } else {
-          // Caso contrário, removemos apenas as batidas individuais que já apareceram ontem
-          const filteredCurr = currPunches.filter(p => !prevPunches.includes(p));
-          mapaMarcacoes.set(currDate, filteredCurr);
-        }
-      }
-    }
-
     // 3. Corrigir marcações de virada de noite (Move Backward)
-    // Fazemos isso DEPOIS da deduplicação para garantir que estamos movendo batidas únicas
+    // Esta lógica é uma segunda camada de segurança para batidas que não foram capturadas pela regra das 03:00 AM
     for (let i = 0; i < sortedDates.length; i++) {
       const currentDate = sortedDates[i];
       const currentPunches = mapaMarcacoes.get(currentDate)!;

@@ -1,5 +1,5 @@
 {
-  "name": "Remix: PontoCLT - Sistema de Controle de Ponto",
-  "description": "Sistema moderno de controle de ponto com cálculos automáticos de CLT, adicional noturno e banco de horas.",
+  "name": "Sistema de Controle de Ponto",
+  "description": "Sistema moderno de controle de ponto com cálculos automáticos de lançamentos, adicional noturno e banco de horas.",
   "requestFramePermissions": []
 }
