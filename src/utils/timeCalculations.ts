@@ -115,7 +115,8 @@ export function calculateDay(
   const nightMinutesFicta = Math.round(nightMinutesRaw * (FATOR_NOTURNO - 1));
   const totalWithFicta = totalMinutes + nightMinutesFicta;
 
-  const effectiveDailyWorkHours = isExtra ? 0 : dailyWorkHours;
+  // Se for feriado, domingo ou marcado como extra, a jornada esperada é zero
+  const effectiveDailyWorkHours = (isExtra || isHolidayOrSunday) ? 0 : dailyWorkHours;
   const balance = totalWithFicta - effectiveDailyWorkHours;
   
   let overtimeNormal = 0;

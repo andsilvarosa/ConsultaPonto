@@ -347,10 +347,13 @@ export async function onRequestPost(context: any) {
     let savedCount = 0;
     const dbErrors: string[] = [];
     for (const [date, punches] of Array.from(mapaMarcacoes.entries())) {
-      // Não ordenamos novamente aqui, pois já foi ordenado no início e as madrugadas foram jogadas pro final
+      // Se não houver batidas, marcamos como extra para não gerar saldo negativo (folga)
+      const isExtraDay = punches.length === 0;
+
       const marcacao: any = {
         matricula: matricula,
         date: date,
+        is_extra: isExtraDay,
         entry_1: punches[0] || null, exit_1: punches[1] || null,
         entry_2: punches[2] || null, exit_2: punches[3] || null,
         entry_3: punches[4] || null, exit_3: punches[5] || null,
@@ -362,6 +365,7 @@ export async function onRequestPost(context: any) {
         await db.insert(timeEntries).values({
           matricula,
           date: marcacao.date,
+          is_extra: marcacao.is_extra,
           entry_1: marcacao.entry_1, exit_1: marcacao.exit_1,
           entry_2: marcacao.entry_2, exit_2: marcacao.exit_2,
           entry_3: marcacao.entry_3, exit_3: marcacao.exit_3,
@@ -370,6 +374,7 @@ export async function onRequestPost(context: any) {
         }).onConflictDoUpdate({
           target: [timeEntries.matricula, timeEntries.date],
           set: {
+            is_extra: marcacao.is_extra,
             entry_1: marcacao.entry_1, exit_1: marcacao.exit_1,
             entry_2: marcacao.entry_2, exit_2: marcacao.exit_2,
             entry_3: marcacao.entry_3, exit_3: marcacao.exit_3,
