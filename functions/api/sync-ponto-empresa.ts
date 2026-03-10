@@ -146,9 +146,7 @@ export async function onRequestPost(context: any) {
           }
         });
 
-        if (punchesDoDia.length > 0) {
-          mapaMarcacoes.set(rowDate, punchesDoDia);
-        }
+        mapaMarcacoes.set(rowDate, punchesDoDia);
       } catch (err) {
         console.error(`Erro ao buscar dia ${dayInfo.day}:`, err);
       }
@@ -167,12 +165,33 @@ export async function onRequestPost(context: any) {
       punches.sort();
     }
 
-    // 2. Corrigir marcações de virada de noite (Move Backward)
-    // Fazemos isso PRIMEIRO para que batidas de saída de madrugada voltem para o dia correto
-    const sortedDatesForBackward = Array.from(mapaMarcacoes.keys()).sort();
-    
-    for (let i = 0; i < sortedDatesForBackward.length; i++) {
-      const currentDate = sortedDatesForBackward[i];
+    const sortedDates = Array.from(mapaMarcacoes.keys()).sort();
+
+    // 2. Deduplicação Global (Remover batidas idênticas em dias adjacentes)
+    // Isso resolve o problema do site da empresa retornar as mesmas batidas para dias diferentes
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prevDate = sortedDates[i - 1];
+      const currDate = sortedDates[i];
+      const prevPunches = mapaMarcacoes.get(prevDate)!;
+      const currPunches = mapaMarcacoes.get(currDate)!;
+      
+      if (currPunches.length > 0 && prevPunches.length > 0) {
+        // Se TODAS as batidas de hoje já estão em ontem, hoje é uma duplicata (provável erro do site)
+        const isDuplicate = currPunches.every(p => prevPunches.includes(p));
+        if (isDuplicate) {
+          mapaMarcacoes.set(currDate, []);
+        } else {
+          // Caso contrário, removemos apenas as batidas individuais que já apareceram ontem
+          const filteredCurr = currPunches.filter(p => !prevPunches.includes(p));
+          mapaMarcacoes.set(currDate, filteredCurr);
+        }
+      }
+    }
+
+    // 3. Corrigir marcações de virada de noite (Move Backward)
+    // Fazemos isso DEPOIS da deduplicação para garantir que estamos movendo batidas únicas
+    for (let i = 0; i < sortedDates.length; i++) {
+      const currentDate = sortedDates[i];
       const currentPunches = mapaMarcacoes.get(currentDate)!;
       
       if (currentPunches.length === 0) continue;
@@ -189,7 +208,6 @@ export async function onRequestPost(context: any) {
         let prevPunches: string[] = [];
         let belongsToPreviousDay = false;
 
-        // 1. Tentar obter as marcações do dia anterior (do mapa ou do DB)
         if (mapaMarcacoes.has(prevDateStr)) {
           prevPunches = [...mapaMarcacoes.get(prevDateStr)!];
         } else {
@@ -207,7 +225,6 @@ export async function onRequestPost(context: any) {
           }
         }
 
-        // 2. Aplicar a regra de Interjornada (11 horas)
         if (prevPunches.length > 0) {
           const lastPunchPrevDay = prevPunches[prevPunches.length - 1];
           const [h1, m1] = firstPunch.split(':').map(Number);
@@ -221,39 +238,42 @@ export async function onRequestPost(context: any) {
 
           if (isPrevDayOpen) {
             // Se o dia anterior está "aberto" (ímpar), puxamos se o gap for < 11h (660 min)
-            // Isso é o caso clássico de saída de jornada noturna
             if (gap < 660) { 
               belongsToPreviousDay = true;
             }
           } else {
-            // Se o dia anterior está "fechado" (par), só puxamos se o gap for MUITO curto (< 2h)
-            // Isso evita puxar o início de uma nova jornada matinal como se fosse continuação da noite anterior
-            // quando o colaborador esqueceu de bater a saída no dia anterior.
-            if (gap < 120) { 
-              belongsToPreviousDay = true;
-            }
-          }
-        } else {
-          // Se não temos dados de ontem, usamos uma heurística conservadora:
-          // Só consideramos virada de noite se for MUITO cedo (ex: antes das 04:00)
-          // e houver um gap grande para a próxima marcação do próprio dia (> 6h)
-          if (firstPunch < '04:00') {
-            if (currentPunches.length > 1) {
-              const secondPunch = currentPunches[1];
-              const [h1, m1] = firstPunch.split(':').map(Number);
-              const [h2, m2] = secondPunch.split(':').map(Number);
-              if ((h2 * 60 + m2) - (h1 * 60 + m1) > 360) {
-                belongsToPreviousDay = true;
-              }
-            } else {
+            // Se o dia anterior está "fechado" (par), puxamos se o gap for < 4h (240 min)
+            if (gap < 240) { 
               belongsToPreviousDay = true;
             }
           }
         }
 
+        // REGRA DE OURO: Se a primeira batida do dia e a segunda têm um intervalo > 11h,
+        // e a primeira é de madrugada, ela obrigatoriamente pertence ao dia anterior.
+        if (!belongsToPreviousDay && currentPunches.length > 1) {
+          const secondPunch = currentPunches[1];
+          const [h1, m1] = firstPunch.split(':').map(Number);
+          const [h2, m2] = secondPunch.split(':').map(Number);
+          const gapInterno = (h2 * 60 + m2) - (h1 * 60 + m1);
+          
+          if (gapInterno > 660 && firstPunch < '08:00') {
+            belongsToPreviousDay = true;
+          }
+        }
+
+        if (!belongsToPreviousDay && firstPunch < '04:00') {
+          // Heurística conservadora para o primeiro dia do mês ou dias sem registro anterior
+          belongsToPreviousDay = true;
+        }
+
         if (belongsToPreviousDay) {
           const orphanedPunch = currentPunches.shift()!;
-          prevPunches.push(orphanedPunch);
+          // Evitar duplicatas ao mover
+          if (!prevPunches.includes(orphanedPunch)) {
+            prevPunches.push(orphanedPunch);
+            prevPunches.sort();
+          }
           mapaMarcacoes.set(prevDateStr, prevPunches);
           mapaMarcacoes.set(currentDate, currentPunches);
         }
