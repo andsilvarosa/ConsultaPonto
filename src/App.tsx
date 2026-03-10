@@ -397,18 +397,18 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-[#0a0a0a] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-[#121214] border border-black/10 dark:border-white/10 p-8 rounded-3xl shadow-2xl w-full max-w-md"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none w-full max-w-md"
         >
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-4">
-              <Clock className="text-black w-8 h-8" />
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 mb-4">
+              <Clock className="text-white w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Consulta Espelho</h1>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2 text-center">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Consulta Espelho</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 text-center">
               {matriculaExists === null 
                 ? 'Digite sua matrícula para acessar' 
                 : isRegistering 
@@ -418,7 +418,7 @@ export default function App() {
           </div>
 
           {authError && (
-            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 text-sm">
+            <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-600 dark:text-rose-400 text-sm">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               {authError}
             </div>
@@ -426,7 +426,7 @@ export default function App() {
 
           <form onSubmit={matriculaExists === null ? handleCheckMatricula : handleAuth} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest">Matrícula</label>
+              <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Matrícula</label>
               <input 
                 type="text" 
                 required
@@ -434,7 +434,7 @@ export default function App() {
                 value={matricula}
                 onChange={e => setMatricula(e.target.value)}
                 placeholder="Ex: 121212"
-                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white disabled:opacity-50"
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 disabled:opacity-50"
               />
             </div>
 
@@ -444,7 +444,7 @@ export default function App() {
                 animate={{ opacity: 1, height: 'auto' }}
                 className="space-y-2"
               >
-                <label className="text-xs font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest">Senha</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Senha</label>
                 <input 
                   type="password" 
                   required
@@ -452,16 +452,16 @@ export default function App() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="********"
-                  className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500/50 transition-colors text-black dark:text-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100"
                 />
               </motion.div>
             )}
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 pt-2">
               <button 
                 type="submit"
                 disabled={isCheckingMatricula}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 active:scale-[0.98]"
               >
                 {isCheckingMatricula 
                   ? 'Verificando...' 
@@ -480,7 +480,7 @@ export default function App() {
                     setPassword('');
                     setAuthError(null);
                   }}
-                  className="w-full text-zinc-500 dark:text-zinc-400 text-sm font-medium hover:text-emerald-500 transition-colors"
+                  className="w-full text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors py-2"
                 >
                   Usar outra matrícula
                 </button>
