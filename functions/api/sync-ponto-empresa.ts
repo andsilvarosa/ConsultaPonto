@@ -205,7 +205,7 @@ export async function onRequestPost(context: any) {
     }
 
     // 4. Transformar e Guardar no DB
-    // 1. Ordenar as marcações de cada dia primeiro
+    // 1. Ordenar as marcações de cada dia (Standard sort para a lógica de move backward)
     for (const [date, punches] of mapaMarcacoes.entries()) {
       punches.sort();
     }
@@ -326,12 +326,22 @@ export async function onRequestPost(context: any) {
           // Evitar duplicatas ao mover
           if (!prevPunches.includes(orphanedPunch)) {
             prevPunches.push(orphanedPunch);
-            prevPunches.sort();
           }
           mapaMarcacoes.set(prevDateStr, prevPunches);
           mapaMarcacoes.set(currentDate, currentPunches);
         }
       }
+    }
+
+    // 4. Ordenação Final Inteligente (Regra: 16:00 < 01:00)
+    for (const [date, punches] of mapaMarcacoes.entries()) {
+      punches.sort((a, b) => {
+        const getV = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          return (h < 3 ? h + 24 : h) * 60 + m;
+        };
+        return getV(a) - getV(b);
+      });
     }
 
     let savedCount = 0;
