@@ -134,6 +134,13 @@ export async function onRequestPost(context: any) {
         const punchesDoDia: string[] = [];
 
         $2('#Grid tr, table tr').each((index, element) => {
+          const rowText = $2(element).text().toLowerCase();
+          
+          // Ignorar linhas de resumo que podem conter totais de horas que parecem batidas
+          if (rowText.includes('total') || rowText.includes('saldo') || rowText.includes('débito') || rowText.includes('crédito') || rowText.includes('horas')) {
+            return;
+          }
+
           const textoLinha = $2(element).text().replace(/\s+/g, ' ').trim();
           const matchesHorario = textoLinha.match(/([0-2]?\d:[0-5]\d)/g);
           
@@ -242,22 +249,31 @@ export async function onRequestPost(context: any) {
               belongsToPreviousDay = true;
             }
           } else {
-            // Se o dia anterior está "fechado" (par), puxamos se o gap for < 4h (240 min)
-            if (gap < 240) { 
+            // Se o dia anterior está "fechado" (par), puxamos se o gap for < 8h (480 min)
+            // Aumentamos para 8h para cobrir saídas de madrugada mesmo com intervalos longos
+            if (gap < 480) { 
               belongsToPreviousDay = true;
             }
           }
         }
 
-        // REGRA DE OURO: Se a primeira batida do dia e a segunda têm um intervalo > 11h,
-        // e a primeira é de madrugada, ela obrigatoriamente pertence ao dia anterior.
-        if (!belongsToPreviousDay && currentPunches.length > 1) {
-          const secondPunch = currentPunches[1];
+        // REGRA DE OURO REFORÇADA: 
+        // 1. Se a batida é de madrugada (até 05:00) e o intervalo para a próxima é > 11h, ELA É DE ONTEM.
+        // 2. Se a batida é de madrugada (até 04:00) e não há outra batida no dia, ELA É DE ONTEM.
+        if (!belongsToPreviousDay) {
           const [h1, m1] = firstPunch.split(':').map(Number);
-          const [h2, m2] = secondPunch.split(':').map(Number);
-          const gapInterno = (h2 * 60 + m2) - (h1 * 60 + m1);
-          
-          if (gapInterno > 660 && firstPunch < '08:00') {
+          const minsFirst = h1 * 60 + m1;
+
+          if (currentPunches.length > 1) {
+            const secondPunch = currentPunches[1];
+            const [h2, m2] = secondPunch.split(':').map(Number);
+            const gapInterno = (h2 * 60 + m2) - minsFirst;
+            
+            // Se o intervalo para a próxima batida do dia é > 11h, a primeira é resíduo de ontem
+            if (gapInterno > 660 && minsFirst < 300) { // Antes das 05:00
+              belongsToPreviousDay = true;
+            }
+          } else if (minsFirst < 240) { // Antes das 04:00 e única batida
             belongsToPreviousDay = true;
           }
         }
