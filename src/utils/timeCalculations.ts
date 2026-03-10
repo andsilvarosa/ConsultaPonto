@@ -115,17 +115,10 @@ export function calculateDay(
   const nightMinutesFicta = Math.round(nightMinutesRaw * (FATOR_NOTURNO - 1));
   const totalWithFicta = totalMinutes + nightMinutesFicta;
 
-  // Se for feriado, domingo ou marcado como extra, a jornada esperada é zero
-  // Sábados não são automaticamente dias de folga (isWeekend no App.tsx inclui sábado, mas aqui precisamos ser específicos)
-  // Vamos usar a flag isExtra para o sábado se ele for folga, ou passar uma nova flag.
-  // Por enquanto, vamos manter a lógica de que isHolidayOrSunday (que vem como isWeekend || !!holiday do App.tsx) zera a jornada.
-  // O problema é que o App.tsx passa isWeekend (sábado ou domingo) como isHolidayOrSunday.
-  // Se o sábado é dia de trabalho normal, não podemos zerar a jornada esperada.
-  // Vamos assumir que a jornada esperada é sempre dailyWorkHours, exceto se for marcado como extra.
-  // Se o usuário trabalha no sábado, a jornada é dailyWorkHours. Se não trabalha, é extra.
-  // Na verdade, o App.tsx passa isWeekend || !!holiday. Vamos alterar o App.tsx para passar apenas domingo ou feriado.
-  // Mas aqui no timeCalculations, vamos apenas usar o que é passado.
-  const effectiveDailyWorkHours = (isExtra || isHolidayOrSunday) ? 0 : dailyWorkHours;
+  // A jornada esperada é zero APENAS se o dia for marcado como extra (isExtra = true).
+  // Domingos e feriados são considerados dias normais de trabalho a menos que marcados como extra,
+  // pois o funcionário pode trabalhar em escala (ex: 6x1).
+  const effectiveDailyWorkHours = isExtra ? 0 : dailyWorkHours;
   
   // O saldo é o total trabalhado menos a jornada esperada.
   // Se a jornada esperada é 0 (folga), o saldo é exatamente o total trabalhado.
@@ -141,6 +134,8 @@ export function calculateDay(
   let overtime100 = 0;
 
   if (balance > 0) {
+    // Se o dia for domingo ou feriado E houver saldo positivo, a hora extra é 100%
+    // (Mesmo que seja um dia normal de trabalho, as horas além da jornada em domingos/feriados costumam ser 100%)
     if (isHolidayOrSunday) {
       overtime100 = balance;
     } else {
