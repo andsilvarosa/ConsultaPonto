@@ -314,9 +314,9 @@ export default function App() {
 
   const getDayStatus = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
-    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    const isSunday = date.getDay() === 0;
     const holiday = holidays.find(h => h.date === dateStr);
-    return { isWeekend, holiday };
+    return { isSunday, holiday };
   };
 
   const calculateStats = () => {
@@ -327,10 +327,10 @@ export default function App() {
     const todayStr = new Date().toISOString().split('T')[0];
     
     (entries || []).forEach(entry => {
-      const { isWeekend, holiday } = getDayStatus(entry.date);
+      const { isSunday, holiday } = getDayStatus(entry.date);
       const entriesArr = [entry.entry_1, entry.entry_2, entry.entry_3, entry.entry_4, entry.entry_5];
       const exitsArr = [entry.exit_1, entry.exit_2, entry.exit_3, entry.exit_4, entry.exit_5];
-      const result = calculateDay(entriesArr, exitsArr, isWeekend || !!holiday, dailyWorkHours, entry.is_extra);
+      const result = calculateDay(entriesArr, exitsArr, isSunday || !!holiday, dailyWorkHours, entry.is_extra);
       totalBalance += result.balance;
       totalNight += result.nightMinutesFicta;
       if (entry.date === todayStr) {
@@ -663,15 +663,15 @@ export default function App() {
                   </thead>
                   <tbody className="divide-y divide-black/[0.02] dark:divide-white/[0.02]">
                     {(entries || []).map((entry, idx) => {
-                      const { isWeekend, holiday } = getDayStatus(entry.date);
+                      const { isSunday, holiday } = getDayStatus(entry.date);
                       const entriesArr = [entry.entry_1, entry.entry_2, entry.entry_3, entry.entry_4, entry.entry_5];
                       const exitsArr = [entry.exit_1, entry.exit_2, entry.exit_3, entry.exit_4, entry.exit_5];
-                      const result = calculateDay(entriesArr, exitsArr, isWeekend || !!holiday, dailyWorkHours, entry.is_extra);
+                      const result = calculateDay(entriesArr, exitsArr, isSunday || !!holiday, dailyWorkHours, entry.is_extra);
                       
                       return (
                         <tr 
                           key={entry.date} 
-                          className={`group hover:bg-black/[0.02] dark:bg-white/[0.02] transition-colors ${isWeekend || holiday ? 'bg-emerald-500/[0.02]' : ''}`}
+                          className={`group hover:bg-black/[0.02] dark:bg-white/[0.02] transition-colors ${isSunday || holiday ? 'bg-emerald-500/[0.02]' : ''}`}
                         >
                           <td className="px-8 py-5">
                             <div className="flex flex-col">
@@ -765,13 +765,13 @@ export default function App() {
                   const day = i + 1;
                   const dateStr = `2026-03-${String(day).padStart(2, '0')}`;
                   const entry = (entries || []).find(e => e.date === dateStr);
-                  const { isWeekend, holiday } = getDayStatus(dateStr);
+                  const { isSunday, holiday } = getDayStatus(dateStr);
                   
                   let balance = 0;
                   if (entry) {
                     const entriesArr = [entry.entry_1, entry.entry_2, entry.entry_3, entry.entry_4, entry.entry_5];
                     const exitsArr = [entry.exit_1, entry.exit_2, entry.exit_3, entry.exit_4, entry.exit_5];
-                    const result = calculateDay(entriesArr, exitsArr, isWeekend || !!holiday, dailyWorkHours, entry.is_extra);
+                    const result = calculateDay(entriesArr, exitsArr, isSunday || !!holiday, dailyWorkHours, entry.is_extra);
                     balance = result.balance;
                   }
 
@@ -780,10 +780,10 @@ export default function App() {
                       key={day} 
                       className={`aspect-square rounded-xl border p-2 flex flex-col justify-between transition-all hover:bg-black/[0.02] dark:bg-white/[0.02]
                         ${entry ? 'bg-black/[0.02] dark:bg-white/[0.02] border-black/[0.06] dark:border-white/[0.06]' : 'bg-transparent border-black/[0.03] dark:border-white/[0.03]'}
-                        ${isWeekend || holiday ? 'bg-emerald-500/[0.03] border-emerald-500/10' : ''}
+                        ${isSunday || holiday ? 'bg-emerald-500/[0.03] border-emerald-500/10' : ''}
                       `}
                     >
-                      <span className={`text-[10px] font-bold ${isWeekend || holiday ? 'text-emerald-500/60' : 'text-zinc-600 dark:text-zinc-400'}`}>
+                      <span className={`text-[10px] font-bold ${isSunday || holiday ? 'text-emerald-500/60' : 'text-zinc-600 dark:text-zinc-400'}`}>
                         {day}
                       </span>
                       {entry && (
@@ -828,16 +828,16 @@ export default function App() {
                           itemStyle={{ color: '#fff' }}
                         />
                         <Bar dataKey={(entry) => {
-                          const { isWeekend, holiday } = getDayStatus(entry.date);
+                          const { isSunday, holiday } = getDayStatus(entry.date);
                           const entriesArr = [entry.entry_1, entry.entry_2, entry.entry_3, entry.entry_4, entry.entry_5];
                           const exitsArr = [entry.exit_1, entry.exit_2, entry.exit_3, entry.exit_4, entry.exit_5];
-                          return calculateDay(entriesArr, exitsArr, isWeekend || !!holiday, dailyWorkHours, entry.is_extra).balance;
+                          return calculateDay(entriesArr, exitsArr, isSunday || !!holiday, dailyWorkHours, entry.is_extra).balance;
                         }} name="Saldo (min)">
                           {(entries || []).slice().reverse().map((entry, index) => {
-                            const { isWeekend, holiday } = getDayStatus(entry.date);
+                            const { isSunday, holiday } = getDayStatus(entry.date);
                             const entriesArr = [entry.entry_1, entry.entry_2, entry.entry_3, entry.entry_4, entry.entry_5];
                             const exitsArr = [entry.exit_1, entry.exit_2, entry.exit_3, entry.exit_4, entry.exit_5];
-                            const balance = calculateDay(entriesArr, exitsArr, isWeekend || !!holiday, dailyWorkHours, entry.is_extra).balance;
+                            const balance = calculateDay(entriesArr, exitsArr, isSunday || !!holiday, dailyWorkHours, entry.is_extra).balance;
                             return <Cell key={`cell-${index}`} fill={balance >= 0 ? '#10b98180' : '#f43f5e80'} />;
                           })}
                         </Bar>
