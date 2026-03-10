@@ -138,7 +138,7 @@ export async function onRequestPost(context: any) {
           // 1. Jornadas que começarem após meio dia (Noturnas): Iniciar na 11ª linha (index 10)
           // 2. Jornadas que começarem após às 03 da manhã (Diurnas): Iniciar na 10ª linha (index 9)
           
-          if (index < 9) return; // Ignora as primeiras 9 linhas (1-9)
+          if (index < 9) return; // Ignora as primeiras 9 linhas (0-8)
 
           const rowText = $2(element).text().toLowerCase();
           
@@ -163,14 +163,27 @@ export async function onRequestPost(context: any) {
 
               // Se estamos na 10ª linha (index 9)
               if (index === 9) {
-                // Se a jornada começa após meio-dia, a regra diz para começar na 11ª (index 10)
-                // Portanto, ignoramos a 10ª linha se o primeiro horário for >= 12:00
+                // REGRA 1: Se a jornada começa após meio-dia, a regra diz para começar na 11ª (index 10)
                 if (firstInRow >= '12:00') {
                   return;
                 }
+                
+                // REGRA 2: Se a batida é de madrugada (antes das 03:00), ela pertence ao dia anterior
+                if (firstInRow < '03:00') {
+                  const prevDate = new Date(today.getFullYear(), today.getMonth(), dayInfo.day - 1);
+                  const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
+                  
+                  const prevPunches = mapaMarcacoes.get(prevDateStr) || [];
+                  tempPunches.forEach(p => {
+                    if (!prevPunches.includes(p)) prevPunches.push(p);
+                  });
+                  prevPunches.sort();
+                  mapaMarcacoes.set(prevDateStr, prevPunches);
+                  return; // Não adiciona ao dia atual
+                }
               }
               
-              // Se estamos na 11ª linha ou superior, ou se a 10ª linha passou no teste acima
+              // Adiciona ao dia atual
               tempPunches.forEach(h => {
                 if (!punchesDoDia.includes(h)) punchesDoDia.push(h);
               });
@@ -303,8 +316,8 @@ export async function onRequestPost(context: any) {
           }
         }
 
-        if (!belongsToPreviousDay && firstPunch < '04:00') {
-          // Heurística conservadora para o primeiro dia do mês ou dias sem registro anterior
+        // Se ainda assim a batida for antes das 03:00 e estiver sobrando, ela é de ontem
+        if (!belongsToPreviousDay && firstPunch < '03:00') {
           belongsToPreviousDay = true;
         }
 
