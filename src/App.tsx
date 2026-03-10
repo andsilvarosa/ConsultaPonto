@@ -397,14 +397,14 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#EBEFF4] dark:bg-slate-950 flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none w-full max-w-md"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-300/20 dark:shadow-none w-full max-w-md"
         >
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 mb-4">
+            <div className="w-16 h-16 bg-[#5586D9] rounded-2xl flex items-center justify-center shadow-lg shadow-[#5586D9]/20 mb-4">
               <Clock className="text-white w-8 h-8" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Consulta Espelho</h1>
@@ -434,7 +434,7 @@ export default function App() {
                 value={matricula}
                 onChange={e => setMatricula(e.target.value)}
                 placeholder="Ex: 121212"
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 disabled:opacity-50"
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[#5586D9]/20 focus:border-[#5586D9] transition-all text-slate-900 dark:text-slate-100 disabled:opacity-50"
               />
             </div>
 
@@ -452,7 +452,7 @@ export default function App() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="********"
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100"
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[#5586D9]/20 focus:border-[#5586D9] transition-all text-slate-900 dark:text-slate-100"
                 />
               </motion.div>
             )}
@@ -461,7 +461,7 @@ export default function App() {
               <button 
                 type="submit"
                 disabled={isCheckingMatricula}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 active:scale-[0.98]"
+                className="w-full bg-[#5586D9] hover:bg-[#4a75c1] text-white px-6 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-[#5586D9]/20 disabled:opacity-50 active:scale-[0.98]"
               >
                 {isCheckingMatricula 
                   ? 'Verificando...' 
@@ -480,7 +480,7 @@ export default function App() {
                     setPassword('');
                     setAuthError(null);
                   }}
-                  className="w-full text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors py-2"
+                  className="w-full text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-[#5586D9] dark:hover:text-[#5586D9] transition-colors py-2"
                 >
                   Usar outra matrícula
                 </button>
