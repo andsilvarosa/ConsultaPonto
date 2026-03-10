@@ -134,6 +134,12 @@ export async function onRequestPost(context: any) {
         const punchesDoDia: string[] = [];
 
         $2('#Grid tr, table tr').each((index, element) => {
+          // Regra de Linhas solicitada pelo usuário:
+          // 1. Jornadas que começarem após meio dia (Noturnas): Iniciar na 11ª linha (index 10)
+          // 2. Jornadas que começarem após às 03 da manhã (Diurnas): Iniciar na 10ª linha (index 9)
+          
+          if (index < 9) return; // Ignora as primeiras 9 linhas (1-9)
+
           const rowText = $2(element).text().toLowerCase();
           
           // Ignorar linhas de resumo que podem conter totais de horas que parecem batidas
@@ -145,11 +151,30 @@ export async function onRequestPost(context: any) {
           const matchesHorario = textoLinha.match(/([0-2]?\d:[0-5]\d)/g);
           
           if (matchesHorario) {
+            const tempPunches: string[] = [];
             matchesHorario.forEach(h => {
               let [hora, min] = h.split(':');
               const hFormatada = `${hora.padStart(2, '0')}:${min}`;
-              if (!punchesDoDia.includes(hFormatada)) punchesDoDia.push(hFormatada);
+              tempPunches.push(hFormatada);
             });
+
+            if (tempPunches.length > 0) {
+              const firstInRow = tempPunches[0];
+
+              // Se estamos na 10ª linha (index 9)
+              if (index === 9) {
+                // Se a jornada começa após meio-dia, a regra diz para começar na 11ª (index 10)
+                // Portanto, ignoramos a 10ª linha se o primeiro horário for >= 12:00
+                if (firstInRow >= '12:00') {
+                  return;
+                }
+              }
+              
+              // Se estamos na 11ª linha ou superior, ou se a 10ª linha passou no teste acima
+              tempPunches.forEach(h => {
+                if (!punchesDoDia.includes(h)) punchesDoDia.push(h);
+              });
+            }
           }
         });
 
@@ -259,7 +284,7 @@ export async function onRequestPost(context: any) {
 
         // REGRA DE OURO REFORÇADA: 
         // 1. Se a batida é de madrugada (até 05:00) e o intervalo para a próxima é > 11h, ELA É DE ONTEM.
-        // 2. Se a batida é de madrugada (até 04:00) e não há outra batida no dia, ELA É DE ONTEM.
+        // 2. Se a batida é de madrugada (até 03:00) e não há outra batida no dia, ELA É DE ONTEM.
         if (!belongsToPreviousDay) {
           const [h1, m1] = firstPunch.split(':').map(Number);
           const minsFirst = h1 * 60 + m1;
@@ -273,7 +298,7 @@ export async function onRequestPost(context: any) {
             if (gapInterno > 660 && minsFirst < 300) { // Antes das 05:00
               belongsToPreviousDay = true;
             }
-          } else if (minsFirst < 240) { // Antes das 04:00 e única batida
+          } else if (minsFirst < 180) { // Antes das 03:00 (180 min) e única batida
             belongsToPreviousDay = true;
           }
         }
