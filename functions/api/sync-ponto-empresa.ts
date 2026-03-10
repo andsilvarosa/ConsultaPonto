@@ -208,8 +208,6 @@ export async function onRequestPost(context: any) {
         }
 
         // 2. Aplicar a regra de Interjornada (11 horas)
-        // Se o intervalo entre a última marcação de ontem e a primeira de hoje for < 11h, 
-        // então a primeira de hoje é continuação de ontem (virada de noite).
         if (prevPunches.length > 0) {
           const lastPunchPrevDay = prevPunches[prevPunches.length - 1];
           const [h1, m1] = firstPunch.split(':').map(Number);
@@ -217,12 +215,23 @@ export async function onRequestPost(context: any) {
           
           const minsFirst = h1 * 60 + m1;
           const minsLast = hL * 60 + mL;
-          
-          // Gap = (tempo até meia-noite de ontem) + (tempo desde meia-noite de hoje)
           const gap = (1440 - minsLast) + minsFirst;
           
-          if (gap < 660) { // 11 horas = 660 minutos
-            belongsToPreviousDay = true;
+          const isPrevDayOpen = prevPunches.length % 2 !== 0;
+
+          if (isPrevDayOpen) {
+            // Se o dia anterior está "aberto" (ímpar), puxamos se o gap for < 11h (660 min)
+            // Isso é o caso clássico de saída de jornada noturna
+            if (gap < 660) { 
+              belongsToPreviousDay = true;
+            }
+          } else {
+            // Se o dia anterior está "fechado" (par), só puxamos se o gap for MUITO curto (< 2h)
+            // Isso evita puxar o início de uma nova jornada matinal como se fosse continuação da noite anterior
+            // quando o colaborador esqueceu de bater a saída no dia anterior.
+            if (gap < 120) { 
+              belongsToPreviousDay = true;
+            }
           }
         } else {
           // Se não temos dados de ontem, usamos uma heurística conservadora:
@@ -245,38 +254,8 @@ export async function onRequestPost(context: any) {
         if (belongsToPreviousDay) {
           const orphanedPunch = currentPunches.shift()!;
           prevPunches.push(orphanedPunch);
-          // Não ordenamos aqui para manter a sequência cronológica (a saída da madrugada fica por último)
           mapaMarcacoes.set(prevDateStr, prevPunches);
           mapaMarcacoes.set(currentDate, currentPunches);
-        }
-      }
-    }
-
-    // 3. Regra de Interjornada (Move Forward): 
-    // Se um dia tem uma marcação muito distante da anterior (> 11h), 
-    // essa marcação e as seguintes pertencem ao próximo dia.
-    // Fazemos isso DEPOIS para separar jornadas que o site da empresa agrupou erroneamente
-    const datesForForward = Array.from(mapaMarcacoes.keys()).sort();
-    for (const date of datesForForward) {
-      const punches = mapaMarcacoes.get(date)!;
-      if (punches.length < 2) continue;
-      
-      for (let i = 1; i < punches.length; i++) {
-        const [hPrev, mPrev] = punches[i-1].split(':').map(Number);
-        const [hCurr, mCurr] = punches[i].split(':').map(Number);
-        const minsPrev = hPrev * 60 + mPrev;
-        const minsCurr = hCurr * 60 + mCurr;
-        
-        if (minsCurr - minsPrev > 660) { // Gap > 11 horas
-          const movedPunches = punches.splice(i);
-          const [year, month, day] = date.split('-').map(Number);
-          const nextDateObj = new Date(year, month - 1, day);
-          nextDateObj.setDate(nextDateObj.getDate() + 1);
-          const nextDateStr = `${nextDateObj.getFullYear()}-${String(nextDateObj.getMonth() + 1).padStart(2, '0')}-${String(nextDateObj.getDate()).padStart(2, '0')}`;
-          
-          const existingNext = mapaMarcacoes.get(nextDateStr) || [];
-          mapaMarcacoes.set(nextDateStr, Array.from(new Set([...movedPunches, ...existingNext])).sort());
-          break; 
         }
       }
     }
